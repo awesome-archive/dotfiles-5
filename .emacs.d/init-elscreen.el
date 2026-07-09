@@ -12,7 +12,28 @@
 (global-set-key (kbd "<C-S-iso-lefttab>") 'elscreen-previous)
 (global-set-key (kbd "<header-line> <mouse-4>") 'elscreen-previous)
 (global-set-key (kbd "M-s <backspace>") 'elscreen-swap)
+(global-set-key (kbd "M-s f") 'elscreen-find-file)
 (global-set-key (kbd "C-` f") 'elscreen-find-file)
+
+;; [M-s <left>] Move the current screen to the left. (by swapping with the previous)
+(defun elscreen-move-left()
+  "Move the current screen to the left."
+  (interactive)
+  (if (= (elscreen-get-current-screen) 0)
+      (elscreen-message "Can't move the leftmost screen to the left.")
+    (elscreen-previous)
+    (elscreen-swap)))
+(global-set-key (kbd "M-s <left>") 'elscreen-move-left)
+
+;; [M-s <right>] Move the current screen to the right. (by swapping with the next)
+(defun elscreen-move-right()
+  "Move the current screen to the right."
+  (interactive)
+  (if (= (elscreen-get-current-screen) (- (elscreen-get-number-of-screens) 1))
+      (elscreen-message "Can't move the rightmost screen to the right.")
+    (elscreen-next)
+    (elscreen-swap)))
+(global-set-key (kbd "M-s <right>") 'elscreen-move-right)
 
 ;; [M-s SPC] Open all buffers in individual screens
 (defun all-buffers-elscreen ()
@@ -98,7 +119,8 @@
 
 ;; Enable elscreen-dnd
 ;; With elscreen-dnd, new screens are automatically created for each file drag & dropped
-(load "elscreen-dnd")
+;; Suppress the "Invalid function" error in Emacs 28
+(condition-case nil (load "elscreen-dnd") (error nil))
 (setq elscreen-dnp-drag-n-drop t)
 
 ;; Automatic store

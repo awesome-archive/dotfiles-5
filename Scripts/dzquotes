@@ -1,0 +1,16 @@
+#!/bin/zsh
+#
+# Show the dzen quotes. (for xmonad only)
+#
+# Dependencies:
+# - dzen2
+# - fortune-mod
+
+pkill -f "dzen2 -title-name quotes"
+
+(
+    # requires zsh built-in echo
+    fortune $HOME/.zsh/fortune-cookies/quotes | read QUOTES
+    echo -n "$QUOTES   \n"
+) | dzen2 -title-name 'quotes' \
+          -p -x '1000' -h '18' -ta r -fn 'Ubuntu Mono'

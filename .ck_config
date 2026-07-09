@@ -1,0 +1,9 @@
+# this configuration file should be a shell script
+
+CK_SYNC_IN_COMMAND="rclone copy --progress remote:ck.gpg $CK_TMP"
+CK_SYNC_OUT_COMMAND="rclone move --progress $CK_TMP_GPG remote:"
+
+CK_SYNC_LIST=$HOME/ck_sync
+CK_BACK_LIST=$HOME/ck_back
+
+CK_PASSPHRASE=

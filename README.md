@@ -4,11 +4,11 @@
 
 ## Package initialization
 
-### (via git submodule)
+### (via git submodule, could be outdated)
 
     $ git submodule init && git submodule update
 
-### Vundle (no submodule)
+### Vim/Vundle (no submodule, always updated)
 
 (1)
 
@@ -16,7 +16,7 @@
 
 (2) Launch vim and run `:PluginInstall`.
 
-### TPM (no submodule)
+### Tmux/TPM (no submodule, always updated)
 
 (1)
 
@@ -27,6 +27,12 @@
     $ tmux source ~/.tmux.conf
 
 (3) In tmux, press `prefix + I` to fetch plugins.
+
+### Emacs/ELPA
+
+<kbd>M-x package-install RET elscreen RET</kbd> Install [ElScreen](https://melpa.org/#/elscreen)
+
+<kbd>M-x package-install RET powerline RET</kbd> Install [Powerline](https://melpa.org/#/powerline)
 
 
 
@@ -69,6 +75,10 @@ Editing certain files by initializing `emacs` with explicit parameters will not 
 <kbd>C-x s</kbd> Save file (like save-as)
 
 <kbd>C-x b</kbd> Switch buffer
+
+<kbd>C-x Left</kbd> Switch to previous buffer
+
+<kbd>C-x Right</kbd> Switch to next buffer
 
 <kbd>C-x k</kbd> Kill buffer
 
@@ -196,7 +206,7 @@ Editing certain files by initializing `emacs` with explicit parameters will not 
 
 <kbd>M-s d</kbd> Create a new screen and run dired
 
-<kbd>M-s C-f</kbd> Find file in new screen
+<kbd>M-s f</kbd> <kbd>M-s C-f</kbd> Find file in new screen
 
 <kbd>M-s C-r</kbd> Find file in new screen (read-only)
 
@@ -242,6 +252,10 @@ Editing certain files by initializing `emacs` with explicit parameters will not 
 
 ### Nonstandard ElScreen commands
 
+<kbd>M-s \<left\></kbd> Move the current screen to the left
+
+<kbd>M-s \<right\></kbd> Move the current screen to the right
+
 <kbd>M-s r</kbd> Remember (save current session)
 
 <kbd>M-s \<SPC\></kbd> Open all buffers in individual screens
@@ -259,6 +273,12 @@ Editing certain files by initializing `emacs` with explicit parameters will not 
 <kbd>C-z</kbd> Undo
 
 <kbd>C-g C-z</kbd> Redo
+
+### Markdown mode and Python mode
+
+<kbd>C-S-c ></kbd> Shift 4 spaces to the right
+
+<kbd>C-S-c <</kbd> Shift 4 spaces to the left
 
 ### Emmet mode
 
@@ -288,47 +308,45 @@ Editing certain files by initializing `emacs` with explicit parameters will not 
 
 ## Tmux
 
-### Split window / Create pane
+### Create / kill pane
 
-<kbd>M-s h</kbd> <kbd>M-s \<</kbd> Split window horizontally
+<kbd>M-s 3</kbd> <kbd>M-s |</kbd> Split window horizontally
 
-<kbd>M-s v</kbd> <kbd>M-s /</kbd> Split window vertically
-
-<kbd>M-s t</kbd> Display time
-
-<kbd>M-s q</kbd> Display pane number
+<kbd>M-s 2</kbd> <kbd>M-s -</kbd> Split window vertically
 
 <kbd>M-s x</kbd> Kill current pane
 
+<kbd>M-s 0</kbd> Kill current pane (no prompt!)
+
 ### Select pane
 
-<kbd>M-\<up\></kbd> Select up-side pane
+<kbd>M-s \<left\></kbd> Select left-side pane
 
-<kbd>M-\<down\></kbd> Select down-side pane
+<kbd>M-s \<right\></kbd> Select right-side pane
 
-<kbd>M-\<left\></kbd> Select left-side pane
+<kbd>M-s \<down\></kbd> Select down-side pane
 
-<kbd>M-\<right\></kbd> Select right-side pane
+<kbd>M-s \<up\></kbd> Select up-side pane
 
 <kbd>M-s ;</kbd> Select last pane
 
 ### Resize pane
 
-<kbd>M-s \<up\></kbd> Resize pane up-side
+<kbd>M-h</kbd> Resize pane left-side
 
-<kbd>M-s \<down\></kbd> Resize pane down-side
+<kbd>M-l</kbd> Resize pane right-side
 
-<kbd>M-s \<left\></kbd> Resize pane left-side
+<kbd>M-j</kbd> Resize pane down-side
 
-<kbd>M-s \<right\></kbd> Resize pane right-side
+<kbd>M-k</kbd> Resize pane up-side
 
-### Create window
+### Create / kill window
 
 <kbd>M-s c</kbd> Create new window
 
 <kbd>M-s &</kbd> Kill current window
 
-<kbd>M-s k</kbd> Kill current window (no prompt)
+<kbd>M-s k</kbd> Kill current window (no prompt!)
 
 ### Select window
 
@@ -336,11 +354,13 @@ Editing certain files by initializing `emacs` with explicit parameters will not 
 
 <kbd>C-\<down\></kbd> Select next window
 
-<kbd>M-s [0-9]</kbd> Select the window number 0-9
-
 ### Miscellany
 
 <kbd>M-s r</kbd> Reload configuration (`.tmux.conf`)
+
+<kbd>M-s t</kbd> Display time
+
+<kbd>M-s q</kbd> Display pane number
 
 <kbd>M-s ?</kbd> Show key bindings of Tmux
 
@@ -401,3 +421,79 @@ Editing certain files by initializing `emacs` with explicit parameters will not 
 `git ll` Show fancy Git log
 
 `git d` = `git diff HEAD --`
+
+
+
+## Xmonad
+
+### Standard commands
+
+<kbd>Super-Shift-Enter</kbd>
+Launch terminal
+
+<kbd>Super-p</kbd>
+Launch dmenu
+
+<kbd>Super-Shift-C</kbd>
+Close the focused window
+
+<kbd>Super-Space</kbd>
+Rotate through the available layout algorithms
+
+<kbd>Super-j</kbd>
+Move focus to the next window
+
+<kbd>Super-k</kbd>
+Move focus to the previous window
+
+<kbd>Super-Shift-J</kbd>
+Swap the focused window with the next window
+
+<kbd>Super-Shift-K</kbd>
+Swap the focused window with the previous window
+
+<kbd>Super-l</kbd>
+Expand the master area
+
+<kbd>Super-h</kbd>
+Shrink the master area
+
+<kbd>Super-,</kbd>
+Increment the number of windows in the master area
+
+<kbd>Super-.</kbd>
+Deincrement the number of windows in the master area
+
+<kbd>Super-q</kbd>
+Restart xmonad
+
+<kbd>Super-Shift-Q</kbd>
+Quit xmonad
+
+### Customized commands
+
+<kbd>Super-PgDn</kbd> or
+<kbd>Super-Down</kbd> Switch to next workspace
+
+<kbd>Super-PgUp</kbd> or
+<kbd>Super-Up</kbd> Switch to previous workspace
+
+<kbd>Super-Shift-PgDn</kbd> or
+<kbd>Super-Shift-Down</kbd> Move window to next workspace
+
+<kbd>Super-Shift-PgUp</kbd> or
+<kbd>Super-Shift-Up</kbd> Move window to previous workspace
+
+<kbd>Super-Tab</kbd> Toggle workspaces
+
+<kbd>Super-Right</kbd> Switch to next screen
+
+<kbd>Super-Left</kbd> Switch to previous screen
+
+<kbd>Super-Shift-Right</kbd> Move window to next screen
+
+<kbd>Super-Shift-Left</kbd> Move window to previous screen
+
+<kbd>Super-Shift-L</kbd> Lock screen
+
+<kbd>Super-Shift-P</kbd> Take screenshot

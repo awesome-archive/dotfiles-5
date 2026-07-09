@@ -1,0 +1,65 @@
+#!/usr/bin/env python
+
+# Download all images from modelpress <https://mdpr.jp/>.
+
+import json, re, sys
+from you_get.common import *
+from you_get.util import *
+
+site_info = 'modelpress'
+
+def main():
+    for arg in sys.argv[1:]:
+        if re.search('mdpr\.jp/[^/]+/\d+', arg):
+            article_type, article_id = re.findall(r'mdpr\.jp/([^/]+)/(\d+)', arg)[0]
+            arg = 'https://mdpr.jp/%s/detail/%s' % (article_type, article_id)
+        article_type, article_id = re.findall(r'mdpr\.jp/([^/]+)/detail/(\d+)', arg)[0]
+
+        cont = get_content(arg)
+
+        details = re.findall(r'a href="(/photo/detail/\d+)"', cont)
+        details += re.findall(r'a class="moki-image-link" href="(/photo/detail/\d+)"', cont)
+        details += re.findall(r'a class="moki-image-link is-noResize" href="(/photo/detail/\d+)"', cont)
+        details += re.findall(r'<meta property="og:url" content="https://mdpr.jp(/photo/detail/\d+)"', cont)
+
+        imgs = re.findall(r'"url":"(https://img-mdpr\.freetls\.fastly\.net/article/[^?"]+)', cont)
+
+        i = 1
+        for detail in details:
+            photo_id = detail.split('/')[-1]
+
+            url = "https://mdpr.jp%s" % detail
+            cont = get_content(url)
+            orig = re.findall(r'<img src="(https://img-mdpr\.freetls\.fastly\.net/article/[^?]+)', cont)[0]
+            if not orig:
+                orig = re.findall(r'<meta property="og:image" content="([^?]+/([^?]+))?', cont)[0]
+            orig_id = orig.split('/')[-1].split('.')[-2]
+            title = '[mdpr.jp] [%s] %s' % (photo_id, orig_id)
+
+            ext, size = 'jpg', url_size(orig)
+            print_info(site_info, title, ext, size)
+            download_urls(urls=[orig],
+                          title=title,
+                          output_dir='.',
+                          total_size=size,
+                          ext=ext,
+                          merge=False)
+
+        if article_type == 'interview':
+            for orig in imgs:
+                orig_id = orig.split('/')[-1].split('.')[-2]
+                title = '[mdpr.jp] %s' % orig_id
+
+                ext, size = 'jpg', url_size(orig)
+                print_info(site_info, title, ext, size)
+                download_urls(urls=[orig],
+                              title=title,
+                              output_dir='.',
+                              total_size=size,
+                              ext=ext,
+                              merge=False)
+
+    return
+
+if __name__ == '__main__':
+    main()

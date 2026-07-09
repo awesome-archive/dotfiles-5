@@ -1,0 +1,84 @@
+#!/bin/zsh
+#
+# A command-line wrapper for launching the eom image viewer.
+# It removes window decoration automatically.
+# Can be modified and used as an alternative to GNOME Shell extension "Pixel Saver".
+#
+# Dependencies: xdotool, xprop
+#
+# Written by Gemini:
+#   https://gemini.google.com/app/30b5204829795fe4
+
+# 1. Pre-flight & Setup
+if ! command -v eom >/dev/null 2>&1; then
+    print "Error: eom is not installed." >&2
+    exit 1
+fi
+
+SESSION_FILE="$HOME/moe-session"
+TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S.%N") # Using Nanoseconds for absolute uniqueness
+
+get_eom_wins() {
+    xdotool search --onlyvisible --class "eom" 2>/dev/null
+}
+
+BEFORE_WINS=($(get_eom_wins))
+
+# Start eom
+eom "$@" &
+EOM_PID=$!
+
+# 2. Identify the NEW visible window ID
+NEW_WIN_ID=""
+for i in {1..50}; do
+    CURRENT_WINS=($(get_eom_wins))
+    for win in $CURRENT_WINS; do
+        if [[ ! ${BEFORE_WINS[(r)$win]} == $win ]]; then
+            eval $(xdotool getwindowgeometry --shell "$win")
+            if (( WIDTH > 1 && HEIGHT > 1 )); then
+                NEW_WIN_ID=$win
+                break 2
+            fi
+        fi
+    done
+    sleep 0.1
+done
+
+if [[ -z "$NEW_WIN_ID" ]]; then
+    print "Error: Could not detect the new eom window." >&2
+    exit 1
+fi
+
+# 3. Handle Title and Logging
+# Fetch the window title
+WIN_TITLE=$(xdotool getwindowname "$NEW_WIN_ID")
+#LOG_LINE="${TIMESTAMP}\t${WIN_TITLE}"
+LOG_LINE="${TIMESTAMP}\t$@"  # log command-line arguments instead
+
+# Append to session file
+print "$LOG_LINE" >> "$SESSION_FILE"
+
+# 4. Remove decorations and Center
+xprop -id "$NEW_WIN_ID" -f _MOTIF_WM_HINTS 32c -set _MOTIF_WM_HINTS "0x2, 0x0, 0x0, 0x0, 0x0"
+
+SCREEN_GEOM=($(xdotool getdisplaygeometry))
+eval $(xdotool getwindowgeometry --shell "$NEW_WIN_ID")
+X=$(( (SCREEN_GEOM[1] - WIDTH) / 2 ))
+Y=$(( (SCREEN_GEOM[2] - HEIGHT) / 2 ))
+xdotool windowmove "$NEW_WIN_ID" "$X" "$Y"
+
+# 5. Wait for Window Closure
+# We poll xwininfo; when it fails, the window is gone.
+while xwininfo -id "$NEW_WIN_ID" >/dev/null 2>&1; do
+    sleep 0.5
+done
+
+# 6. Cleanup the specific line from the session file
+# Using a temporary file to safely handle concurrent access
+if [[ -f "$SESSION_FILE" ]]; then
+    # Create a pattern that matches the exact timestamp
+    # Use grep -v to keep everything EXCEPT this specific line
+    sed -i "/^${TIMESTAMP}/d" "$SESSION_FILE"
+fi
+
+exit 0

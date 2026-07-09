@@ -1,6 +1,95 @@
-#!/bin/sh
+#!/usr/bin/env zsh
+#
+# Start everything I need.
+#
+# Dependencies:
+# - sshfs
+# - xmodmap, xbindkeys, xdotool
+# - nautilus, scite
+# - tmux, htop, mi-casa/caja
 
-tmux new-session -d 'htop'
-#tmux split-window -v 'iotop'
-tmux split-window -l 1 -v "Open-Folders $HOME/session"
-tmux -2 attach-session -d
+set -x
+. prelude
+
+welcome_init() {
+    if [[ $HOST == "Ada" ]]; then
+
+        # mount SSHFS locally
+        # use ServerAlive flags to prevent SSH freeze
+        sshfs soimort@Hope:/ /mnt/Hope -o reconnect,ServerAliveInterval=15,ServerAliveCountMax=3
+        sshfs soimort@Seele:/ /mnt/Seele -o reconnect,ServerAliveInterval=15,ServerAliveCountMax=3
+
+    elif [[ $HOST == "Hope" ]]; then
+
+        # initialize X key bindings (external keyboard)
+        xmodmap ~/.Xmodmap.k1000
+        # (OBSOLETE) initialize X key bindings
+        #xmodmap ~/.Xmodmap
+        #killall -q xbindkeys; xbindkeys
+
+        # start devilspie2
+        #killall -q devilspie2; setsid -f devilspie2
+
+        # mount SSHFS locally
+        # use ServerAlive flags to prevent SSH freeze
+        ## FIXME: why does Ada always prompt for password?
+        ## echo $ALICE | sshfs -o password_stdin soimort@Ada:/ /mnt/Ada
+        sshfs soimort@Ada:/ /mnt/Ada -o reconnect,ServerAliveInterval=15,ServerAliveCountMax=3
+        sshfs soimort@Seele:/ /mnt/Seele -o reconnect,ServerAliveInterval=15,ServerAliveCountMax=3
+
+        # (OBSOLETE, in favor of SSHFS)
+        # connect to SFTP remote points using nautilus
+        #nautilus sftp://soimort@seele sftp://seele 2>/dev/null&
+        #sleep 2  # wait a short while until it's done
+
+    elif [[ $HOST == "Seele" ]]; then  # FIXME?
+
+        # initialize X key bindings
+        xmodmap ~/.Xmodmap
+        killall -q xbindkeys; xbindkeys
+
+        # connect to SFTP remote points using nautilus
+        nautilus sftp://soimort@hope 2>/dev/null&
+        sleep 2  # wait a short while until it's done
+
+    fi
+}
+
+welcome_start() {
+    Check-Notes
+
+}
+
+# (OBSOLETE) Start the default monitored file management session.
+welcome_home() {
+    tmux new-session -d 'htop'
+    # if something goes wrong, show error message forever
+    tmux split-window -l 1 -v "setsid mi-casa $HOME/_ || sleep infinity"
+    tmux -2 attach-session -d
+}
+
+
+local SUBCOMMAND=$1
+case $SUBCOMMAND in
+    '--init' | 'init' )
+        welcome_init
+        ;;
+
+    '--start' | 'start' )
+        welcome_start
+        ;;
+
+    '--home' | 'home' )
+        welcome_home
+        ;;
+
+    '')
+        welcome_init
+        welcome_start
+        ;;
+
+    * )
+        e "invalid subcommand '$1'."
+        exit 1
+        ;;
+esac

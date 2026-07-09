@@ -1,0 +1,128 @@
+#!/usr/bin/env python
+#
+# Download images from FANZA.
+
+import json, re, sys
+from you_get.common import *
+from you_get.util import *
+
+site_info = 'DMM R18'
+
+headers = {
+    'User-Agent': 'Googlebot',
+    'Accept-Encoding': 'gzip, deflate',
+    'Accept': '*/*'
+}
+
+def main():
+    for arg in sys.argv[1:]:
+        cont = get_content(arg, headers=headers)
+        try:
+            cid = re.findall(r'(content_id|cid)=(\w+)', cont)[0][1]
+            print("ID:\t\t%s" % cid)
+            title = (re.findall(r'<title>(.*?) - ', cont) or re.findall(r'<title>(.*?)<', cont))[0]
+            print("Title:\t\t%s" % title)
+            performers = re.findall(r'<span id="performer">[^>]*>([^<]+)</', cont)
+            if performers:
+                print("Performer:\t%s" % performers[0])
+
+            if re.search(r'/mono/', arg):
+                cover_url = 'https://pics.dmm.co.jp/mono/movie/adult/%s/%spl.jpg' % (cid, cid)
+            else:
+                cover_url = 'http://pics.dmm.co.jp/digital/video/%s/%spl.jpg' % (cid, cid)
+            cover_title = '%spl' % cid
+            ext, size = 'jpg', url_size(cover_url)
+            download_urls(urls=[cover_url],
+                          title=cover_title,
+                          output_dir='.',
+                          total_size=size,
+                          ext=ext,
+                          merge=False)
+
+            samps = re.findall('//pics.dmm.co.jp/digital/video/(\w+)/(\w+)jp-(\d+).jpg', cont) or \
+                re.findall('//pics.dmm.com/digital/video/(\w+)/(\w+)-(\d+).jpg', cont)
+            if not samps:
+                samps = re.findall('//pics.dmm.co.jp/digital/video/(\w+)/(\w+)-(\d+).jpg', cont)
+            if not samps:
+                samps = re.findall('//awsimgsrc.dmm.co.jp/pics_dig/digital/video/(\w+)/(\w+)(?<!jp)-(\d+).jpg', cont)
+                samps = set(samps)
+
+            for samp in samps:
+                url = 'https://pics.dmm.co.jp/digital/video/%s/%sjp-%s.jpg' % (samp[0], samp[1], samp[2])
+                title = '%sjp-%s' % (samp[1], samp[2])
+                ext, size = 'jpg', url_size(url)
+                download_urls(urls=[url],
+                              title=title,
+                              output_dir='.',
+                              total_size=size,
+                              ext=ext,
+                              merge=False)
+
+        except:  # when age check is in effect
+            log.w('Age check is in effect...')
+            cid = re.findall(r'cid=([^/]+)', arg)[0]
+            if re.findall(r'/digital/([^/]+)', arg)[0] == 'videoc':
+                category = 'amateur'
+            else:
+                category = 'video'
+            print("ID:\t\t%s" % cid)
+
+            cover_url = 'http://pics.dmm.co.jp/digital/video/%s/%spl.jpg' % (cid, cid)
+            cover_title = '%spl' % cid
+            ext, size = 'jpg', url_size(cover_url)
+            if not size <= 2732:
+                download_urls(urls=[cover_url],
+                              title=cover_title,
+                              output_dir='.',
+                              total_size=size,
+                              ext=ext,
+                              merge=False)
+
+            i = 0
+            while True:
+                i += 1
+                url = 'https://pics.dmm.co.jp/digital/%s/%s/%sjp-%s.jpg' % (category, cid, cid, i)
+                title = '%sjp-%s' % (cid, i)
+                ext, size = 'jpg', url_size(url)
+                if size <= 2732: break
+                download_urls(urls=[url],
+                              title=title,
+                              output_dir='.',
+                              total_size=size,
+                              ext=ext,
+                              merge=False)
+
+            # try again with long id
+            cid_1, cid_2 = r1('^([a-z]+)', cid), r1('(\d+)$', cid)
+            cid = '%s00%s' % (cid_1, cid_2)
+            print("ID:\t\t%s" % cid)
+
+            cover_url = 'http://pics.dmm.co.jp/digital/video/%s/%spl.jpg' % (cid, cid)
+            cover_title = '%spl' % cid
+            ext, size = 'jpg', url_size(cover_url)
+            if not size <= 2732:
+                download_urls(urls=[cover_url],
+                              title=cover_title,
+                              output_dir='.',
+                              total_size=size,
+                              ext=ext,
+                              merge=False)
+
+            i = 0
+            while True:
+                i += 1
+                url = 'https://pics.dmm.co.jp/digital/video/%s/%sjp-%s.jpg' % (cid, cid, i)
+                title = '%sjp-%s' % (cid, i)
+                ext, size = 'jpg', url_size(url)
+                if size <= 2732: break
+                download_urls(urls=[url],
+                              title=title,
+                              output_dir='.',
+                              total_size=size,
+                              ext=ext,
+                              merge=False)
+
+    return
+
+if __name__ == '__main__':
+    main()

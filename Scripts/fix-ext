@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 
 for i in "$@"; do
-    T=`file -0 --mime-type "$i" | cut -d $'\0' -f2 | cut -d ' ' -f2`
-    echo $T
+    bn=`basename "$i"`
+    dn=`dirname "$i"`
+    #echo $bn
+    #echo $dn
+    T=`file -0 --mime-type -- "$i" | cut -d $'\0' -f2 | cut -d ' ' -f2`
+    #echo $T
     case $T in
         'image/gif' )
             t='gif'
@@ -13,19 +17,32 @@ for i in "$@"; do
         'image/png' )
             t='png'
             ;;
+        'image/webp' )
+            t='webp'
+            ;;
         'image/x-ms-bmp' )
             t='bmp'
             ;;
+        'audio/mpeg' )
+            t='mp3'
+            ;;
         'video/mp4' )
             t='mp4'
+            ;;
+        'video/x-flv' )
+            t='flv'
             ;;
         * )
             t=${i##*.}
             ;;
     esac
-    if [ "$t" != "${i##*.}" ]; then
-        j=${i%%\?*}
-        echo $i '->' ${j%.*}.$t
-        mv -i "$i" "${j%.*}.$t"
+
+    if [ "$t" != "${bn##*.}" ]; then
+        j=${bn%%\?*}
+        if [ -z "$j" ]; then
+            j='noname'
+        fi
+        echo $i '->' $dn/${j%.*}.$t
+        mv -i -- "$i" "$dn/${j%.*}.$t"
     fi
 done

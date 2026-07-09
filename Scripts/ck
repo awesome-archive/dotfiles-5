@@ -1,0 +1,270 @@
+#!/usr/bin/env zsh
+#
+# TODO:
+# 1. sync list should support more relaxed format
+# 2. gpg passphrase
+# 3. ck sync (by timestamp)
+# 4. ck back
+CK_VERSION=0.1.0
+
+CK_CONFIG="$HOME/.ck_config"
+CK_TMP="/tmp"
+CK_TMP_PREFIX="${CK_TMP}/ck"
+CK_TMP_DIR="${CK_TMP_PREFIX}/"
+CK_TMP_TAR="${CK_TMP_PREFIX}.tar"
+CK_TMP_GPG="${CK_TMP_PREFIX}.gpg"
+
+. prelude
+
+ck_version() {
+    echo ck $CK_VERSION
+}
+
+ck_help() {
+    echo "Usage:"
+    echo "  ck [edit-]conf \t edit the configuration file"
+    echo "  ck [edit-]sync-list \t edit the synchronization list file"
+    echo "  ck [edit-]back-list \t edit the backup list file"
+    echo "  ck date \t\t show current date and timestamp (from Google)"
+    echo "  ck tar FILENAME \t make an archive of everything in the synchronization list"
+    echo "  ck gpg FILENAME \t make a GPG-encrypted archive of everything in the synchronization list"
+    echo "  ck sync \t\t "
+    echo "  ck [sync-]in \t\t check in to synchronize everything from the remote"
+    echo "  ck [sync-]out \t check out to synchronize everything to the remote"
+    echo "  ck back \t\t "
+}
+
+# initialize the configuration
+ck_init() {
+    if [[ ! -r "$CK_CONFIG" ]]; then
+        e "configuration file $CK_CONFIG not found"
+        exit 1
+    fi
+    source $CK_CONFIG
+
+    CK_EDITOR=$EDITOR
+    if [[ -z "$CK_EDITOR" ]]; then CK_EDITOR=nano; fi
+}
+
+# edit the configuration file
+ck_edit_conf() {
+    ck_init
+    $CK_EDITOR $CK_CONFIG
+}
+
+# edit the synchronization list file
+ck_edit_sync_list() {
+    ck_init
+    $CK_EDITOR $CK_SYNC_LIST
+}
+
+# edit the backup list file
+ck_edit_back_list() {
+    ck_init
+    $CK_EDITOR $CK_BACK_LIST
+}
+
+# show current date and timestamp (from Google)
+ck_date() {
+    local DATE=`curl -I 'https://google.com/' 2>/dev/null | grep -i '^date:' | sed 's/^[Dd]ate: //g'`
+    echo "Time:\t$DATE"
+    CK_TS=`date --date=$DATE +"%s"`
+    echo "TS:\t$CK_TS"
+}
+
+# make an archive of everything in the synchronization list
+ck_tar() {
+    if [[ -z "$1" ]]; then
+        e 'please specify a filename for the archive'
+        exit 1
+    fi
+    ck_init
+
+    local FILENAME=$1 LIST= LINE=
+    while IFS= read -r LINE; do
+        # skip empty lines and comments
+        if [[ -z $LINE || $LINE =~ ^# ]]; then
+            continue
+        fi
+
+        if [[ $LINE =~ ^~ ]]; then  # explicit home path, e.g., ~/Downloads
+            #TBD
+        fi
+
+        LIST=$LIST" $LINE"
+    done < "$CK_SYNC_LIST"
+
+    local CMD="tar -cf ${FILENAME?} -C ${HOME?} $LIST"
+    echo "Executing:\t$CMD" && eval $CMD
+}
+
+# make a GPG-encrypted archive of everything in the synchronization list
+ck_gpg() {
+    if [[ -z "$1" ]]; then
+        e 'please specify a filename for the archive'
+        exit 1
+    fi
+    ck_tar "$@"
+
+    local FILENAME=$1
+    local TMP_RND=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c10`
+    local TMP_FILENAME=/tmp/ck_${TMP_RND}.gpg
+
+
+    if [[ -z "$CK_PASSPHRASE" ]]; then
+        local CMD="gpg --symmetric --output ${TMP_FILENAME?} $FILENAME"
+    else
+        local CMD="gpg --batch --passphrase ${CK_PASSPHRASE?} --symmetric --output ${TMP_FILENAME?} $FILENAME"
+    fi
+    echo "Executing:\t$CMD" && eval $CMD
+    #FIXME: what if gpg fails?
+
+    CMD="mv $TMP_FILENAME $FILENAME"
+    echo "Executing:\t$CMD" && eval $CMD
+}
+
+ck_sync() {
+    ck_init
+
+    #TBD
+}
+
+# check in to synchronize everything from the remote
+ck_sync_in() {
+    ck_init
+
+    local CMD=$CK_SYNC_IN_COMMAND
+    echo "Executing:\t$CMD" && eval $CMD
+
+    # cleanup first
+    rm -f $CK_TMP_TAR
+    rm -rf $CK_TMP_DIR && mkdir -p $CK_TMP_DIR
+
+    if [[ -z "$CK_PASSPHRASE" ]]; then
+        CMD="gpg --output ${CK_TMP_TAR?} --decrypt ${CK_TMP_GPG?}"
+    else
+        CMD="gpg --batch --passphrase ${CK_PASSPHRASE?} --output ${CK_TMP_TAR?} --decrypt ${CK_TMP_GPG?}"
+    fi
+    echo "Executing:\t$CMD" && eval $CMD
+    if [ $? -ne 0 ]; then
+        wtf "GPG decryption failed (bad passphrase!)"
+        exit 1
+    fi
+
+    CMD="tar -xf ${CK_TMP_TAR?} -C ${CK_TMP_DIR?}"
+    echo "Executing:\t$CMD" && eval $CMD
+
+    local LINE= T=0 S=0
+    while IFS= read -r LINE; do
+        # skip empty lines and comments
+        if [[ -z $LINE || $LINE =~ ^# ]]; then
+            continue
+        fi
+
+        if [[ $LINE =~ ^~ ]]; then  # explicit home path, e.g., ~/Downloads
+            #TBD
+        fi
+
+        T=$((T+1))
+        local SRC="${CK_TMP_DIR}$LINE"
+        if [[ -d "$SRC" ]]; then
+            SRC="$SRC/"
+        elif [[ -f "$SRC" ]]; then
+            SRC="$SRC"
+        else
+            w "'$LINE' is in your sync list, but not found on the remote! skipping that..."
+            continue
+        fi
+        CMD="rsync -hav --delete '${SRC?}' '$HOME/${LINE?}'"
+        echo "Executing:\t$CMD" && eval $CMD && S=$((S+1))
+    done < "$CK_SYNC_LIST"
+
+    ok "$S/$T targets successfully synchronized in"
+    if [ $S -ne $T ]; then
+        exit 1
+    fi
+}
+
+# check out to synchronize everything to the remote
+ck_sync_out() {
+    ck_init
+
+    ck_gpg $CK_TMP_GPG
+
+    local CMD=$CK_SYNC_OUT_COMMAND
+    echo "Executing:\t$CMD" ###&& eval $CMD
+    if [ $? -eq 0 ]; then
+        ok "everything synchronized out"
+    fi
+}
+
+ck_back() {
+    ck_init
+
+    #TBD
+}
+
+
+if [ $# -eq 0 ]; then
+    ck_help
+    exit 0
+fi
+
+local SUBCOMMAND=$1
+case $SUBCOMMAND in
+    '--version' | 'version' )
+        ck_version
+        exit 0
+        ;;
+    '--help' | 'help' )
+        ck_help
+        exit 0
+        ;;
+    'edit-conf' | 'conf' )
+        ck_edit_conf
+        exit 0
+        ;;
+    'edit-sync-list' | 'sync-list' )
+        ck_edit_sync_list
+        exit 0
+        ;;
+    'edit-back-list' | 'back-list' )
+        ck_edit_back_list
+        exit 0
+        ;;
+    'date' )
+        ck_date
+        exit 0
+        ;;
+    'tar' )
+        shift
+        ck_tar "$@"
+        exit 0
+        ;;
+    'gpg' )
+        shift
+        ck_gpg "$@"
+        exit 0
+        ;;
+    'sync' )
+        ck_sync
+        exit 0
+        ;;
+    'sync-in' | 'in' )
+        ck_sync_in
+        exit 0
+        ;;
+    'sync-out' | 'out' )
+        ck_sync_out
+        exit 0
+        ;;
+    'back' )
+        ck_back
+        exit 0
+        ;;
+
+    * )
+        e "invalid subcommand '$1'. Try 'ck --help' for more information."
+        exit 1
+        ;;
+esac

@@ -1,8 +1,8 @@
 #!/usr/bin/env zsh
 # @prog         zsh
-# @lastProgVers 5.3.1
+# @lastProgVers 5.7.1
 # @since        2015-12-23
-# @lastChanged  2018-08-08
+# @lastChanged  2020-02-13
 # @author       Mort Yao <soi@mort.ninja>
 
 # Common settings
@@ -18,6 +18,9 @@ PLUGINS=(
     zsh-users/zsh-syntax-highlighting
 )
 export ZSH_HIGHLIGHT_MAXLENGTH=100
+# Disable buggy url-quote-magic, etc.
+# see also: https://github.com/robbyrussell/oh-my-zsh/issues/5569#issuecomment-491504337
+DISABLE_MAGIC_FUNCTIONS=true
 
 # Load prelude
 source $HOME/.zsh/prelude
@@ -39,6 +42,9 @@ antigen apply
 
 # Load my theme
 source $HOME/.zsh/$USER.zsh-theme
+# Fix unreadable color for OTHER_WRITABLE dirs in $LS_COLORS
+# see also: https://unix.stackexchange.com/q/94498/59659
+eval `dircolors ~/.dircolors`
 
 # Load extra settings
 function {
@@ -47,26 +53,36 @@ function {
     done
 } $HOME/.zsh/*.zsh(N) $HOME/.zsh/private/*.zsh(N)
 
-# Initialize Projects & Source
-function {
-    local i && for i in "${*[@]}"; do . $i; done
-} $HOME/{Projects,Source}/*.init.sh(N)
-
 # Misc.
 # Scripts & Tools
 path+=("$HOME/Scripts")
 # pip user
 path+=("$HOME/.local/bin")
 # gem executables
-path=("$HOME/.gem/ruby/2.4.0/bin" $path)
+path=("$HOME/.gem/ruby/2.7.0/bin" "$HOME/.gem/ruby/2.6.0/bin" "$HOME/.gem/ruby/2.5.0/bin" $path)
 # go
 GOPATH=~/go
 path+=("${GOPATH}/bin")
 # cabal
 CABAL_HOME="${HOME}/.cabal"
-path+=("${CABAL_HOME}/bin")
+path=("${CABAL_HOME}/bin" $path)
 # smackage
 SMACKAGE_HOME="${HOME}/.smackage"
 path+=("${SMACKAGE_HOME}/bin")
+# opam configuration
+# eval $(opam env)
+test -r $HOME/.opam/opam-init/init.zsh && . $HOME/.opam/opam-init/init.zsh > /dev/null 2> /dev/null || true
+# pyenv configuration
+if [ -x /usr/bin/pyenv ]; then
+    PYENV_ROOT="${HOME}/.pyenv"
+    path=("${PYENV_ROOT}/bin" $path)
+    eval "$(pyenv init --path)"
+    eval "$(pyenv init -)"
+fi
+
+# Initialize Projects & Source
+function {
+    local i && for i in "${*[@]}"; do . $i; done
+} $HOME/{Projects,Source}/*.init.sh(N)
 
 #log.p $(checkt 'ok')

@@ -1,0 +1,61 @@
+#!/usr/bin/env python
+#
+# Show the memory usage of processes and their children based on names.
+#
+# Usage:
+# $ pmem PROC_NAME
+
+import os
+import subprocess
+import sys
+
+proc_poll = []
+
+def pmem(pid, level=0):
+    proc_status_filename = '/proc/%s/status' % pid
+
+    vm_rss = 0
+    vm_swap = 0
+    with open(proc_status_filename) as f:
+        for line in f:
+            if line.startswith('Name:'):
+                name = line.split()[-1]
+
+            if line.startswith('State:'):
+                state = line.split()[-1]
+
+            if line.startswith('VmRSS:'):
+                assert line.split()[-1] == 'kB'
+                vm_rss = int(line.split()[-2])
+
+            if line.startswith('VmSwap:'):
+                assert line.split()[-1] == 'kB'
+                vm_swap = int(line.split()[-2])
+
+    vm_rss_mb = vm_rss / 1024
+    vm_swap_mb = vm_swap / 1024
+    total_mb = vm_rss_mb + vm_swap_mb
+    print('%s%s %s [%.2f MB] (%.2f MB ram, %.2f MB swap) %s' %
+        (' ' * level * 4, pid, name, total_mb, vm_rss_mb, vm_swap_mb, state))
+
+    # traverse task threads and find all children
+    for tid in os.listdir('/proc/%s/task/' % pid):
+        proc_children_filename = '/proc/%s/task/%s/children' % (pid, tid)
+        with open(proc_children_filename) as f:
+            for line in f:
+                for children_pid in line.split(' ')[:-1]:
+                    pmem(children_pid, level+1)
+
+    proc_poll.append(pid)
+    return (name, vm_rss, vm_swap)
+
+def main():
+    for proc_name in sys.argv[1:]:
+        pgrep_info = subprocess.run(['pgrep', proc_name], capture_output=True, encoding='utf-8')
+        for pid in pgrep_info.stdout.split('\n')[:-1]:
+            if pid not in proc_poll:
+                pmem(pid)
+                print()
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,39 @@
+# Maintainer: Mort Yao
+# Contributor: Brad Fanella <cesura@archlinux.org>
+# Contributor: Martin Wimpress <code@flexion.org>
+
+_pkgname=mate-terminal
+pkgname=$_pkgname-git
+pkgver=1.26.0.r13.g08c1fe6
+pkgrel=1
+pkgdesc="The MATE Terminal Emulator"
+url="https://mate-desktop.org"
+arch=('x86_64')
+license=('GPL')
+depends=('libsm' 'gettext' 'mate-desktop' 'vte3')
+makedepends=('itstool' 'python')
+groups=('mate-extra')
+provides=('mate-terminal')
+conflicts=('mate-terminal' 'mate-terminal-gtk3')
+replaces=('mate-terminal' 'mate-terminal-gtk3')
+source=("${_pkgname}::git+https://github.com/soimort/mate-terminal.git")
+sha1sums=('SKIP')
+
+pkgver() {
+  cd $_pkgname
+  git describe --long --tags | sed 's/\([^-]*-g\)/r\1/;s/-/./g' | sed 's/^v//'
+}
+
+build() {
+  cd $_pkgname
+  git submodule init
+  git submodule update --remote --recursive
+  ./autogen.sh --prefix=/usr --sysconfdir=/etc \
+    --disable-static --localstatedir=/var --with-gnu-ld
+  make
+}
+
+package() {
+  cd $_pkgname
+  make DESTDIR="${pkgdir}" install
+}

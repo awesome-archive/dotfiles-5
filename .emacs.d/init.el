@@ -1,16 +1,45 @@
 ;;; Emacs initialization file
 ;;; @prog         emacs
-;;; @lastProgVers 24.5
+;;; @lastProgVers 26.1
 ;;; @since        2015-12-23
-;;; @lastChanged  2018-05-31
+;;; @lastChanged  2019-12-07
 ;;; @author       Mort Yao <soi@mort.ninja>
 
-;; Custom
-;; ------
+;; Custom File
+;; -----------
 
 (setq custom-file "~/.emacs.d/custom.el")
 (if (file-exists-p custom-file)
     (load custom-file))
+
+(setq inhibit-startup-screen t)
+
+;; Keep custom settings here
+(custom-set-variables
+ '(custom-enabled-themes (quote (tango-dark))))
+(custom-set-faces
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+
+ ;; elscreen
+ '(elscreen-tab-background-face
+   ((((type x w32 mac) (class color)) :background "#000f00")
+    (((class color)) (:background "#000f00"))))
+ '(elscreen-tab-current-screen-face
+   ((((class color)) (:background "#aaeeaa" :foreground "#000000"))))
+ '(elscreen-tab-other-screen-face
+   ((((type x w32 mac) (class color)) :background "#224422" :foreground "#ffffff")))
+
+ ;; powerline
+ '(mode-line
+   ((t (:background "#aaeeaa" :foreground "#000000" :box nil))))
+ '(mode-line-inactive
+   ((t (:background "#666666" :foreground "#f9f9f9" :box nil))))
+ '(powerline-active1
+   ((t (:background "#224422" :foreground "#ffffff" :inherit mode-line))))
+ '(powerline-active2
+   ((t (:background "#446644" :foreground "#ffffff" :inherit mode-line))))
+ )
 
 
 
@@ -35,7 +64,7 @@
 (set-cursor-color "#107f10")
 
 ;; Set default font family / size
-(set-default-font "Ubuntu Mono 12")
+(set-frame-font "Ubuntu Mono 12")
 
 ;; Show line numbers
 (global-linum-mode t)
@@ -44,6 +73,7 @@
 (global-hl-line-mode 1)
 (set-face-background 'hl-line "#101f10")
 (set-face-foreground 'highlight nil)
+(set-face-background 'highlight "#104f10") ; tango-dark uses yellow as highlight background, which looks bad
 
 ;; Show paren mode
 (show-paren-mode 1)
@@ -144,10 +174,16 @@
 ;; [C-` d] Flyspell mode
 (global-set-key (kbd "C-` d") 'flyspell-mode)
 
-;; Initialize MELPA
+;; Initialize ELPA (use HTTP due to lack of HTTPS/TLS support)
 (require 'package)
-(add-to-list 'package-archives
-             '("melpa" . "http://melpa.milkbox.net/packages/") t)
+(setq package-archives
+      '(("GNU ELPA"     . "http://elpa.gnu.org/packages/")
+        ("MELPA Stable" . "http://stable.melpa.org/packages/")
+        ("MELPA"        . "http://melpa.org/packages/"))
+      package-archive-priorities
+      '(("MELPA Stable" . 10)
+        ("GNU ELPA"     . 5)
+        ("MELPA"        . 0)))
 ;;(unless package-archive-contents (package-refresh-contents))
 (package-initialize)
 
@@ -173,17 +209,28 @@
 
 
 
+;; Local Variables
+;; ---------------
+
+;; Turn off file variables
+;; See: http://www.gnu.org/software/emacs/manual/html_node/emacs/Safe-File-Variables.html#Safe-File-Variables
+(setq enable-local-variables nil
+      enable-local-eval nil
+      enable-dir-local-variables nil)
+
+
+
 ;; More
 ;; ----
+
+(setq init-extra "~/.emacs.d/init-extra.el")
+(if (file-exists-p init-extra)
+    (load init-extra)
+    ;(condition-case nil (load init-extra) (error nil))
+  )
 
 (when (require 'elscreen nil 'noerror)
   (load "~/.emacs.d/init-elscreen.el"))
 
 (when (require 'powerline nil 'noerror)
   (powerline-default-theme))
-
-(setq init-extra "~/.emacs.d/init-extra.el")
-(if (file-exists-p init-extra)
-    (condition-case nil
-        (load init-extra)
-      (error nil)))

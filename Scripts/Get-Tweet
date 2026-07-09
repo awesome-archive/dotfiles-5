@@ -4,64 +4,323 @@
 # Dependencies:
 # - python ~ 3.5
 #   - you-get ~ 0.4
+#   - yt-dlp
 #
 # Example:
-#   $ Get-Tweet https://twitter.com/Medieval_Probs/status/681862972424228865
+#   $ Get-Tweet https://twitter.com/sirjoancornella/status/1267444407168630787
 #   $ ls
-#     681862972424228865.pt  CXZ2wbEWYAEPE0l.jpg
+#     1267444407168630787.pt  1267444407168630787_EZbd91UWAAAnuSx.jpg
 
-import json, re, sys
+import base64, json, re, subprocess, sys
 from datetime import datetime
 from you_get.common import *
 from you_get.util import *
 from you_get.extractors.twitter import twitter_download
 
-site_info = 'Twitter'
+site_info = 'X'
+
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:88.0) Gecko/20100101 Firefox/88.0',
+    'Accept-Encoding': 'gzip, deflate',
+    'Accept': '*/*'
+}
+
+def get_url4(url):
+    m = re.match(r'https?://x.com/(.*)', url)
+    if m is not None:
+        url = 'https://twitter.com/' + m.group(1)
+
+    ##p = subprocess.run(['yt-dlp', '--cookies-from-browser', 'chromium', '-s', '--dump-pages', url], capture_output=True)
+    p = subprocess.run(['yt-dlp', '--cookies', '/home/soimort/twitter.com_cookies.txt',
+                        '--add-headers', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+                        '-s', '--dump-pages', url], capture_output=True)
+    ##p = subprocess.run(['yt-dlp', '-s', '--dump-pages', url], capture_output=True)
+    text = p.stdout.decode('utf-8').strip().split('\n')
+    ##content = base64.b64decode(text[5]).decode('utf-8')
+    content = base64.b64decode(text[3]).decode('utf-8')
+    ##content = base64.b64decode(text[6]).decode('utf-8')
+    info = json.loads(content)
+    ##entries = info['data']['threaded_conversation_with_injections_v2']['instructions'][0]['entries']
+    result = info['data']['tweetResult']['result']
+
+    if 'rest_id' not in result:
+        if 'tweet' not in result:
+            log.wtf(result['reason'])
+            exit(1)
+        result = result['tweet']
+
+    item_id = result['rest_id']
+    author = result['core']['user_results']['result']['legacy']['name']
+    screen_name = result['core']['user_results']['result']['legacy']['screen_name']
+    url = 'https://x.com/%s/status/%s' % (screen_name, item_id)
+    created_at = datetime.strptime(result['legacy']['created_at'], '%a %b %d %H:%M:%S %z %Y').strftime('%a %-d %b %Y')
+    full_text = result['legacy']['full_text']
+
+    try:
+        with open(item_id + '.pt', 'x') as outf:
+            outf.write('---\n')
+            outf.write('author: %s\n' % author)
+            outf.write('date: %s\n' % created_at)
+            outf.write('source: %s\n' % 'X')
+            outf.write('url: %s\n' % url)
+            outf.write('---\n')
+            outf.write(full_text)
+            outf.write('\n')
+    except:
+        log.e("[Warning] File '%s' existed and will not be truncated." % (item_id + '.pt'))
+
+    item = result['legacy']
+
+    if 'extended_entities' in item:
+        media = item['extended_entities']['media']
+        output_dir = '.'
+        for medium in media:
+            if 'video_info' in medium:
+                variants = medium['video_info']['variants']
+                variants = sorted(variants, key=lambda kv: kv.get('bitrate', 0))
+                title = item_id + '_' + variants[-1]['url'].split('/')[-1].split('?')[0].split('.')[0]
+                urls = [ variants[-1]['url'] ]
+                for url in urls:
+                    subprocess.run(['wget', '-q', '--show-progress', '-nc', '-O', '%s/%s.mp4' % (output_dir, title), url])
+                    subprocess.run(['ls', '-sh1', '%s/%s.mp4' % (output_dir, title)])
+
+            else:
+                title = item_id + '_' + medium['media_url_https'].split('.')[-2].split('/')[-1]
+                urls = [ medium['media_url_https'] + ':orig' ]
+                size = urls_size(urls, headers=headers)
+                ext = medium['media_url_https'].split('.')[-1]
+
+                download_urls(urls, title, ext, size, output_dir, headers=headers)
+
+    if 'quoted_status_permalink' in item:
+        quoted_url = item['quoted_status_permalink']['expanded']
+        log.w('>>> QUOTED: %s' % quoted_url)
+        get_url4(quoted_url)
+
+    return
+
+
+def get_url3(url):
+    m = re.match(r'https?://x.com/(.*)', url)
+    if m is not None:
+        url = 'https://twitter.com/' + m.group(1)
+
+    ##p = subprocess.run(['yt-dlp', '--cookies-from-browser', 'chromium', '-s', '--dump-pages', url], capture_output=True)
+    p = subprocess.run(['yt-dlp', '--cookies', '/home/soimort/twitter.com_cookies.txt',
+                        '--add-headers', 'User-Agent: python-requests/2.32.3',
+                        '-s', '--dump-pages', url], capture_output=True)
+    ##p = subprocess.run(['yt-dlp', '-s', '--dump-pages', url], capture_output=True)
+    text = p.stdout.decode('utf-8').strip().split('\n')
+    ##content = base64.b64decode(text[5]).decode('utf-8')
+    content = base64.b64decode(text[3]).decode('utf-8')
+    ##content = base64.b64decode(text[6]).decode('utf-8')
+    info = json.loads(content)
+    entries = info['data']['threaded_conversation_with_injections_v2']['instructions'][0]['entries']
+    ##entries = info['data']['tweetResult']['result']['legacy']['entities']
+    for i, entry in enumerate(entries):
+        if 'itemContent' not in entry['content']: continue
+        if 'tweet_results' not in entry['content']['itemContent']: continue
+        result = entry['content']['itemContent']['tweet_results']['result']
+
+        if 'tweet' in result: result = result['tweet']  # some weird tweets
+
+        item_id = result['rest_id']
+        author = result['core']['user_results']['result']['legacy']['name']
+        screen_name = result['core']['user_results']['result']['legacy']['screen_name']
+        url = 'https://x.com/%s/status/%s' % (screen_name, item_id)
+        created_at = datetime.strptime(result['legacy']['created_at'], '%a %b %d %H:%M:%S %z %Y').strftime('%a %-d %b %Y')
+        full_text = result['legacy']['full_text']
+
+        try:
+            with open(item_id + '.pt', 'x') as outf:
+                outf.write('---\n')
+                outf.write('author: %s\n' % author)
+                outf.write('date: %s\n' % created_at)
+                outf.write('source: %s\n' % 'X')
+                outf.write('url: %s\n' % url)
+                outf.write('---\n')
+                outf.write(full_text)
+                outf.write('\n')
+        except:
+            log.e("[Warning] File '%s' existed and will not be truncated." % (item_id + '.pt'))
+
+        item = result['legacy']
+
+        if 'extended_entities' in item:
+            media = item['extended_entities']['media']
+            output_dir = '.'
+            for medium in media:
+                if 'video_info' in medium:
+                    variants = medium['video_info']['variants']
+                    variants = sorted(variants, key=lambda kv: kv.get('bitrate', 0))
+                    title = item_id + '_' + variants[-1]['url'].split('/')[-1].split('?')[0].split('.')[0]
+                    urls = [ variants[-1]['url'] ]
+                    for url in urls:
+                        subprocess.run(['wget', '-q', '--show-progress', '-nc', '-O', '%s/%s.mp4' % (output_dir, title), url])
+                        subprocess.run(['ls', '-sh1', '%s/%s.mp4' % (output_dir, title)])
+                    #size = urls_size(urls, headers=headers)
+                    #if size == float('inf'):
+                    #    log.wtf('[WTF] Undetermined Content-Length: %s' % urls)
+                    #    exit(1)
+                    #mime, ext = variants[-1]['content_type'], 'mp4'
+
+                    #download_urls(urls, title, ext, size, output_dir, headers=headers)
+
+                else:
+                    title = item_id + '_' + medium['media_url_https'].split('.')[-2].split('/')[-1]
+                    urls = [ medium['media_url_https'] + ':orig' ]
+                    size = urls_size(urls, headers=headers)
+                    ext = medium['media_url_https'].split('.')[-1]
+
+                    download_urls(urls, title, ext, size, output_dir, headers=headers)
+
+        if 'quoted_status_permalink' in item:
+            quoted_url = item['quoted_status_permalink']['expanded']
+            log.w('>>> QUOTED: %s' % quoted_url)
+            get_url3(quoted_url)
+
+    return
+
+def get_url2(url):
+    m = re.match('^https?://(mobile\.)?x\.com/([^/]+)/status/(\d+)', url)
+    assert m
+    screen_name, item_id = m.group(2), m.group(3)
+    page_title = "{} [{}]".format(screen_name, item_id)
+    log.w(page_title.split('\n')[0].split(': ')[0])
+
+    api_url = 'https://cdn.syndication.twimg.com/tweet-result?id=%s&token=!' % item_id
+    content = get_content(api_url)
+    info = json.loads(content)
+
+    if 'user' not in info:
+        if info['tombstone']:
+            print(info['tombstone']['text']['text'])
+        raise Exception('NSFW')
+    if 'name' not in info['user']:
+        raise Exception('WTF')
+    save(item_id, info)
+
+def save(item_id, info):
+    author = info['user']['name']
+    url = 'https://x.com/%s/status/%s' % (info['user']['screen_name'], item_id)
+    created_at = datetime.strptime(info['created_at'], '%Y-%m-%dT%H:%M:%S.%fZ').strftime('%a %d %b %Y')
+    full_text = info['text']
+
+    try:
+        with open(item_id + '.pt', 'x') as outf:
+            outf.write('---\n')
+            outf.write('author: %s\n' % author)
+            outf.write('date: %s\n' % created_at)
+            outf.write('source: %s\n' % 'X')
+            outf.write('url: %s\n' % url)
+            outf.write('---\n')
+            outf.write(full_text)
+            outf.write('\n')
+    except:
+        log.e("[Warning] File '%s' existed and will not be truncated." % (item_id + '.pt'))
+
+    output_dir = '.'
+    if 'photos' in info:
+        for photo in info['photos']:
+            photo_url = photo['url']
+            title = item_id + '_' + photo_url.split('.')[-2].split('/')[-1]
+            urls = [ photo_url + ':orig' ]
+            size = urls_size(urls, headers=headers)
+            ext = photo_url.split('.')[-1]
+
+            download_urls(urls, title, ext, size, output_dir, headers=headers)
+
+    if 'video' in info:
+        for mediaDetail in info['mediaDetails']:
+            if 'video_info' not in mediaDetail: continue
+            variants = mediaDetail['video_info']['variants']
+            variants = sorted(variants, key=lambda kv: kv.get('bitrate', 0))
+            title = item_id + '_' + variants[-1]['url'].split('/')[-1].split('?')[0].split('.')[0]
+            urls = [ variants[-1]['url'] ]
+            size = urls_size(urls, headers=headers)
+            mime, ext = variants[-1]['content_type'], 'mp4'
+
+            download_urls(urls, title, ext, size, output_dir, headers=headers)
+
+    if 'quoted_tweet' in info:
+        item_id = info['quoted_tweet']['id_str']
+        save(item_id, info['quoted_tweet'])
+
+
+def get_url(url):
+    m = re.match('^https?://(mobile\.)?twitter\.com/([^/]+)/status/(\d+)', url)
+    assert m
+    screen_name, item_id = m.group(2), m.group(3)
+    page_title = "{} [{}]".format(screen_name, item_id)
+    log.w(page_title.split('\n')[0].split(': ')[0])
+
+    authorization = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA'
+
+    ga_url = 'https://api.twitter.com/1.1/guest/activate.json'
+    ga_content = post_content(ga_url, headers={'authorization': authorization})
+    guest_token = json.loads(ga_content)['guest_token']
+
+    api_url = 'https://api.twitter.com/2/timeline/conversation/%s.json?tweet_mode=extended' % item_id
+    api_content = get_content(api_url, headers={'authorization': authorization, 'x-guest-token': guest_token})
+
+    info = json.loads(api_content)
+    item = info['globalObjects']['tweets'][item_id]
+    user_id_str = item['user_id_str']
+    author = info['globalObjects']['users'][user_id_str]['name']
+    created_at = datetime.strptime(item['created_at'], '%a %b %d %X %z %Y').strftime('%a %d %b %Y')
+    full_text = item['full_text']
+
+    try:
+        with open(item_id + '.pt', 'x') as outf:
+            outf.write('---\n')
+            outf.write('author: %s\n' % author)
+            outf.write('date: %s\n' % created_at)
+            outf.write('source: %s\n' % 'Twitter')
+            outf.write('url: %s\n' % url)
+            outf.write('---\n')
+            outf.write(full_text)
+            outf.write('\n')
+    except:
+        log.e("[Warning] File '%s' existed and will not be truncated." % (item_id + '.pt'))
+
+    if 'extended_entities' in item:
+        media = item['extended_entities']['media']
+        output_dir = '.'
+        for medium in media:
+            if 'video_info' in medium:
+                variants = medium['video_info']['variants']
+                variants = sorted(variants, key=lambda kv: kv.get('bitrate', 0))
+                title = item_id + '_' + variants[-1]['url'].split('/')[-1].split('?')[0].split('.')[0]
+                urls = [ variants[-1]['url'] ]
+                size = urls_size(urls)
+                mime, ext = variants[-1]['content_type'], 'mp4'
+
+                download_urls(urls, title, ext, size, output_dir)
+
+            else:
+                title = item_id + '_' + medium['media_url_https'].split('.')[-2].split('/')[-1]
+                urls = [ medium['media_url_https'] + ':orig' ]
+                size = urls_size(urls)
+                ext = medium['media_url_https'].split('.')[-1]
+
+                download_urls(urls, title, ext, size, output_dir)
+
+    if 'quoted_status_permalink' in item:
+        quoted_url = item['quoted_status_permalink']['expanded']
+        log.w('>>> QUOTED: %s' % quoted_url)
+        get_url(quoted_url)
+
 
 def main():
     for url in sys.argv[1:]:
-        m = re.match('^https?://twitter\.com/[^/]+/status/(\d+)', url)
-        assert m
-        item_id = m.group(1)
+        try:
+            get_url2(url)
+        except Exception as inst:
+            if inst.args[0] in ['NSFW', 'WTF']:
+                get_url4(url)
+            else:
+                raise inst
 
-        cont = get_content(url + '?lang=en',
-                           headers={'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.139 Safari/537.36'})
-        screen_name = r1(r'data-screen-name="([^"]*)"', cont)
-        author = r1(r'<meta\s+property="og:title"\s+content="([^"]*) on Twitter"', cont)
-        data_time = float(r1(r'data-time="(\d+)"', cont))
-        data_time = datetime.fromtimestamp(data_time).strftime('%a %d %b %Y')
-
-        page_title = unescape_html(r1(r'<title>(.*)</title>', cont))
-        t = unescape_html(r1(r'<meta\s+property="og:description"\s+content="“([^"]*)”"', cont))
-        log.w(page_title)
-        outf = open(item_id + '.pt', 'w')
-        outf.write('---\n')
-        outf.write('author: %s\n' % author)
-        outf.write('date: %s\n' % data_time)
-        outf.write('source: %s\n' % 'Twitter')
-        outf.write('url: %s\n' % url)
-        outf.write('---\n')
-        outf.write(t)
-        outf.write('\n')
-        outf.close()
-
-        s = re.findall(r'property="og:image"\s*content="([^"]+:large)"', cont)
-        for i in s:
-            image_url = ':'.join(i.split(':')[:-1]) + ':orig'
-            filename = parse.unquote(image_url.split('/')[-1])
-            title = '.'.join(filename.split('.')[:-1])
-            ext = image_url.split(':')[-2].split('.')[-1]
-            size = int(get_head(image_url)['Content-Length'])
-            download_urls(urls=[image_url],
-                          title=title,
-                          ext=ext,
-                          total_size=size,
-                          output_dir='.')
-        if not s:
-            try:
-                twitter_download(url)
-            except:
-                pass
 
 if __name__ == '__main__':
     main()

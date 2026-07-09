@@ -1,6 +1,15 @@
 #!/usr/bin/env python
+#
+# Show recent Tumblr posts with >=50 notes.
+#
+# Usage:
+# $ tumstar USERNAME
+#
+# Dependencies:
+# - you-get
 
 import sys, json
+from urllib.parse import unquote
 from you_get.common import *
 
 def main():
@@ -32,7 +41,7 @@ def main():
         for post in posts:
             if int(post['note-count']) >= 50:  # set the bar!
                 print('%s\t%s\t%s' % (post['note-count'], post.get('regular-title', '[NONAME]'),
-                                      post['url-with-slug']))
+                                      unquote(post['url-with-slug'])))
 
 if __name__ == '__main__':
     main()

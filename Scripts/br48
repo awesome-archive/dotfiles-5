@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+#
+# Convert a Breakdown file to HTML.
+#
+# Dependencies:
+# - breakdown
+# - xsel
+
+br48() {
+    local res=
+    shopt -s lastpipe  # make the last pipeline segment run in the current shell
+
+    for filename in "$@"; do
+        if [ ! -r "$filename" ]; then
+            echo [ERROR] file \"$filename\" does not exist
+            continue
+        fi
+
+        local i=0 in_yaml=false author date source url
+        while IFS= read -r line || [ -n "$line" ]; do
+            if [[ $in_yaml = true ]]; then
+                if [[ $line =~ ^'author: ' ]]; then
+                    author=${line#author: }
+                elif [[ $line =~ ^'date: ' ]]; then
+                    date=${line#date: }
+                elif [[ $line =~ ^'source: ' ]]; then
+                    source=${line#source: }
+                elif [[ $line =~ ^'url: ' ]]; then
+                    url=${line#url: }
+
+                elif [[ $line = '---' ]]; then
+                    # end of YAML metadata
+                    in_yaml=false
+                fi
+
+            elif [[ $i = 0 && $line = '---' ]]; then
+                # start of YAML metadata
+                in_yaml=true
+            fi
+
+            (( i = i + 1 ))
+        done < "$filename"
+
+        local temp=
+        ( echo "<strong>$author - $source - $date</strong>" &&
+        #( echo "<strong><a href='$url'>$author - $source - $date</a></strong>" &&
+              echo "<blockquote>" &&
+              breakdown "$filename" &&
+              echo "</blockquote>" ) | { read -r -d '' temp; res=$res$temp; }
+    done
+
+    echo $res | xsel -b
+}
+
+
+if [ $# -eq 0 ]; then
+    echo "Usage:"
+    echo "  br48 [FILES]"
+    exit 1
+fi
+
+br48 "$@"

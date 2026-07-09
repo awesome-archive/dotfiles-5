@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+#
+# Markdown flavor that preserves literal line breaks
+# and supports line-based strong & em.
+#
+# Dependencies:
+# - pandoc
+
+BR_VERSION=0.1.0.1
+
+br_version() {
+    echo br $BR_VERSION
+}
+
+br_help() {
+    br_version && echo
+
+    echo "Usage:"
+    echo "  br [FILES]"
+}
+
+br_pandoc() {
+    for filename in "$@"; do
+        if [ ! -r "$filename" ]; then
+            echo [ERROR] file \"$filename\" does not exist
+            continue
+        fi
+
+        local i=0 in_yaml=false
+        while IFS= read -r line || [ -n "$line" ]; do
+            if [[ $in_yaml = true ]]; then
+                if [[ $line = '---' ]]; then
+                    # end of YAML metadata
+                    in_yaml=false
+                fi
+                echo "$line"
+
+            elif [[ $i = 0 && $line = '---' ]]; then
+                # start of YAML metadata
+                in_yaml=true
+                echo "$line"
+
+            elif [[ $line =~ ^'# ' || $line =~ ^'## ' || $line =~ ^'### ' ]]; then
+                # do not append line break on headings
+                echo && echo "$line"
+
+            elif [[ $line =~ ^'_ ' ]]; then
+                echo "<em>${line#_ }</em>" \\
+
+            elif [[ $line =~ ^'__ ' ]]; then
+                echo "<strong>${line#__ }</strong>" \\
+
+            elif [[ $line =~ ^'___ ' ]]; then
+                echo "<em><strong>${line#___ }</strong></em>" \\
+
+            elif [[ $line = '\' ]]; then
+                echo " "
+
+            else
+                echo "$line" \\
+            fi
+
+            (( i = i + 1 ))
+        done < "$filename" | pandoc
+    done
+}
+
+
+if [ $# -eq 0 ]; then
+    br_help
+    exit 0
+fi
+
+br_pandoc "$@"

@@ -1,0 +1,58 @@
+#!/usr/bin/env python
+#
+# Search one or more target regexps in a mi-casa session.
+#
+# Examples:
+#   $ mi-casa-find 220604+250317 _res
+#   $ mi-casa-find 220604+250317 _res$
+
+import os
+from pathlib import Path
+import re
+import sys
+
+
+if __name__ == '__main__':
+    if len(sys.argv) < 3:
+        print('Usage:')
+        print('    mi-casa-find SESSION TARGET...')
+        exit(0)
+
+    home = Path.home()
+    config_dir = os.environ.get('XDG_CONFIG_HOME') or '%s/.config' % Path.home()
+
+    session, targets = sys.argv[1], sys.argv[2:]
+
+    if Path(session).is_file():
+        session_filename = session
+    elif Path(f'{home}/{session}.mur').is_file():
+        session_filename = f'{home}/{session}.mur'
+    else:
+        print('[error] session not found')
+        exit(1)
+
+    flag_workspace_starting = True
+    with open(session_filename) as f:
+        for line in f:
+            line = line.strip()
+            if line == '' or line[0] == '#':
+                continue
+
+            if line == '***':
+                flag_workspace_starting = True
+                continue
+
+            if flag_workspace_starting:
+                workspace_name = line
+                num = 0
+                flag_workspace_starting = False
+                continue
+            else:
+                flag = False
+                num += 1
+                for target in targets:
+                    m = re.match(rf'(.*{target}.*)', line)
+                    if m:
+                        flag = True
+                if flag:
+                    print('%-20s%3d %s' % (workspace_name, num, line))
