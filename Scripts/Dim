@@ -15,7 +15,7 @@ def main():
         if m is not None:
             print('%s x %s' % (m.group(2), m.group(3)))
             # show "non-technical" metadata (descriptive fields like titles, authors, and descriptions)
-            p = subprocess.run(['exiftool', '-Title', '-Description', '-Caption-Abstract', '-Artist', '-Copyright', '-Keywords', filename], capture_output=True)
+            p = subprocess.run(['exiftool', '-Title', '-Description', '-Caption-Abstract', '-Artist', '-Copyright', '-Keywords', '-Comment', filename], capture_output=True)
             result = p.stdout.decode('utf-8').strip()
             print(result)
         else:
