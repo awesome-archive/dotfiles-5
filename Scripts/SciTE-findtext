@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+#
+# Find text in a saved SciTE session (.SciTE.session).
+#
+# Written by Gemini:
+#   https://gemini.google.com/app/bf5fcff6f1ddd383
+
+import re
+import sys
+import os
+from pathlib import Path
+
+def get_buffer_paths(session_path):
+    """Parses a session file and yields tuples of (number, path)."""
+    pattern = re.compile(r'buffer\.(\d+)\.path=(.*)')
+    buffers = []
+    try:
+        with open(session_path, 'r', encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                match = pattern.search(line)
+                if match:
+                    number, path_str = match.groups()
+                    buffers.append((number, path_str.strip()))
+    except Exception as e:
+        print(f"Error reading session file {session_path}: {e}", file=sys.stderr)
+    return buffers
+
+def file_contains_text(filepath, search_text):
+    """Checks if the given text string exists within a file."""
+    try:
+        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+            return search_text in f.read()
+    except Exception:
+        # Silently skip files that cannot be opened or read (e.g., missing, permission errors)
+        return False
+
+def resolve_session_files(args):
+    """Resolves command-line arguments to existing session Path objects."""
+    home = Path.home()
+    session_files = []
+
+    if not args:
+        # Default case: read all $HOME/*.SciTE.session
+        session_files = list(home.glob("*.SciTE.session"))
+        if not session_files:
+            print("No .SciTE.session files found in home directory.", file=sys.stderr)
+    else:
+        for arg in args:
+            arg_path = Path(arg)
+            if arg_path.exists():
+                session_files.append(arg_path)
+            else:
+                fallback_path = home / f"{arg}.SciTE.session"
+                if fallback_path.exists():
+                    session_files.append(fallback_path)
+                else:
+                    print(f"Error: File '{arg}' or fallback '{fallback_path}' not found.", file=sys.stderr)
+
+    return session_files
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: SciTE-findtext TEXT [SESSION_FILE...]", file=sys.stderr)
+        sys.exit(1)
+
+    search_text = sys.argv[1]
+    session_args = sys.argv[2:]
+
+    session_files = resolve_session_files(session_args)
+
+    for session_file in session_files:
+        buffers = get_buffer_paths(session_file)
+        matching_buffers = []
+
+        for number, target_path_str in buffers:
+            target_path = Path(target_path_str)
+            if target_path.is_file() and file_contains_text(target_path, search_text):
+                matching_buffers.append((number, target_path_str))
+
+        # Only print the session header if at least one target file matched
+        if matching_buffers:
+            print(f"--- {session_file.resolve()} ---")
+            for number, target_path_str in matching_buffers:
+                print(f"{number}\t{target_path_str}")
+
+if __name__ == "__main__":
+    main()
